@@ -1,0 +1,24 @@
+const icon = (paths, size = 16) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+export const ICONS = {
+    play: icon('<path d="M7.5 5.2v13.6a.6.6 0 0 0 .9.5l10.8-6.8a.6.6 0 0 0 0-1L8.4 4.7a.6.6 0 0 0-.9.5Z"/>'),
+    pause: icon('<path d="M8 5v14M16 5v14"/>'),
+    stepBack: icon('<path d="M17 6.5v11L9.5 12 17 6.5Z"/><path d="M7 6v12"/>'),
+    stepForward: icon('<path d="M7 6.5v11l7.5-5.5L7 6.5Z"/><path d="M17 6v12"/>'),
+    flag: icon('<path d="M6 21V4"/><path d="M6 4.5c3-1.6 5.5 1.4 8.5 0S18.5 4 18.5 4v8.5s-1 .9-4 .9-5.5-2.6-8.5-.9"/>'),
+    stop: icon('<path d="M8.8 3.5h6.4l4.5 4.5v6.4l-4.5 4.5H8.8l-4.5-4.5V8l4.5-4.5Z"/>'),
+    record: icon('<circle cx="12" cy="12" r="5.5"/>'),
+    snow: icon('<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="m9.5 4.5 2.5 2 2.5-2M9.5 19.5l2.5-2 2.5 2"/>'),
+    search: icon('<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/>'),
+    save: icon('<path d="M5 4h11l3 3v13H5V4Z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>'),
+    restore: icon('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'),
+    trash: icon('<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>'),
+    download: icon('<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>'),
+    upload: icon('<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>'),
+    cut: icon('<circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8.3 15.7 18 4M15.7 15.7 6 4"/>'),
+    close: icon('<path d="M6 6l12 12M18 6 6 18"/>'),
+    chevron: icon('<path d="m9 6 6 6-6 6"/>'),
+    dice: icon('<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><circle cx="9" cy="9" r=".6" fill="currentColor"/><circle cx="15" cy="15" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/>'),
+    blank: icon('<rect x="4.5" y="6" width="15" height="12" rx="3"/><path d="M9 12h6"/>'),
+    plus: icon('<path d="M12 5v14M5 12h14"/>'),
+};
