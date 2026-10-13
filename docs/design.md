@@ -92,6 +92,8 @@ Snapshots are only taken between frames. Mid-frame there's an active thread half
 
 Keys: originals are `stage` / `sprite:<name>` because their ids are random per load. Clones keep their real ids, which are deterministic. Monitor ids embed original target ids, so those are rewritten to `@sprite:<name>` and back.
 
+Block ids have the same problem in a narrower place. sb3 stores literals and inline variable/list reporters as compact arrays without ids, and `deserializeInputDesc` gives each one a fresh `uid()` at load, before SPRE has seeded anything. Every other block keeps the id saved in the project. Those generated ids reach a snapshot through thread stacks and, mostly, `frame.reported[].opCached` (the half-evaluated inputs of a block waiting on a promise). `block-ids.js` names such a block by where it sits, `$["parentId","INPUT"]` (with `"shadow"` for an obscured shadow), and resolves the name back through the parent's input on restore. It only rewrites primitive opcodes with a parent, so ordinary ids stay readable, and it needs no table: both directions are one lookup. An id that really starts with `$` is escaped as `$"…"`. The format bumped `SNAPSHOT_VERSION` to 2; version 1 snapshots still load, since their ids pass through unchanged.
+
 Encoding (`encode.js`) is tagged JSON: `{"$spre": "NaN"}` and so on for values JSON can't hold, plus `timer`, `thread`, `target` and `variable` references inside block state. `broadcast and wait` keeps the started threads and the broadcast variable in its stack frame, so those need references. Timers record their start and which clock they read (`clock` or `frame`). An unknown class is a strict-mode error naming the path.
 
 Things deliberately left out:
@@ -129,6 +131,40 @@ Procedure calls cache the parameter names, definition id and warp flag per call 
 Promises (extension blocks that SPRE doesn't turn into waits) leave the compiled code through the same `frame.reported` bookkeeping as stock, so snapshots taken mid-wait have the same shape. A thread whose frame is resuming from a promise, a running profiler, or a failed `new Function` (a page CSP) uses the generic path, which is a line-for-line copy of the stock loop.
 
 The contract is bit-identity: `tests/fastexec.test.js` runs a procedure/operator/list/clone world, a promise-heavy world and the 2D Physics Engine with `fastExecute` on and off and compares the state hash every few frames. On the 2D Physics Engine (about 520 k blocks per frame once it warms up) a frame went from about 80 ms to 45 ms; the Linux-on-Scratch project is 1.85x faster.
+
+## Movies
+
+A movie has to rebuild the whole session, not just list inputs. Three things made the old `{ seed, fps, events }` drift:
+
+- Settings: the epoch, time zone and block cost change what `current year`, `days since 2000` and every warp loop do, so the movie records all the settings attach started with, plus the renderer kind.
+- Branches: a timeline seek or savestate load used to keep the current log up to the snapshot's frame, which is wrong when the snapshot came from another branch. Snapshots now carry `history: { origin, log }`, and `restore` swaps in the snapshot's log. `origin` names where the session started: `load:` plus a hash of the project fingerprint and settings for a fresh load, or `snapshot:` plus the hash of the starting snapshot. A snapshot whose origin is not this session's becomes the new start, with an empty log. `hash()` leaves `history` out, so identical worlds reached by different routes still hash equal.
+- Changes outside the input queue: `clock.configure` and `rng.reseed` / `force` / `queue` are logged as `clock` and `rng` events and applied at once, between frames. On replay they apply at the start of that frame, after due timers and waits resolve. Neither of those reads the RNG or depends on fps or block cost, so the order makes no difference. Callbacks (`onPick`, `override`) can't be serialised and are listed in `unrecorded`.
+
+`attach` defaults to `origin: 'snapshot'` and captures the world on attach (non-strict), because a VM attached mid-run has a state no fresh load reproduces. `loadProject` passes `origin: 'load'`.
+
+## Probes
+
+`ctx.probes.current` is either `null` or an object with `step(thread)` and `block(thread, blockId, run)`. The fast `stepThread` reads it once per thread step: with no probe it calls `execute` as before (one null check per statement), otherwise it calls `probe.block(thread, blockId, execute)` and the probe must call `run(thread)` exactly once. The stock path calls `block(thread, null, run)` around the whole prototype `stepThread`, so stock-mode probes see threads, not statements. `withProbe` composes with a probe that is already attached (the profiler), wrapping it rather than replacing it. Probes may read anything but must not change state; both the profiler and the diff blame only read.
+
+Frame hooks (`ctx.frameHooks`) are called after each frame with the frame number and its op count.
+
+## Profiler
+
+Every op the clock charges is attributed, so `totalOps` equals the sum of `frameOps` and the root's `self` is normally 0. The probe measures `work.ops` before and after each statement, which includes the statement's reporters, so a block's `self` is its full cost and nothing is sampled.
+
+The tree is sprite, script (keyed by top block, so clones share their sprite's nodes), procedure call (keyed by proccode under its caller, so call sites in one script merge), block. Finding the procedure path means walking `thread.stack` for `procedures_call` entries, which was 3.5x the run time on the Linux emulator when done per statement. Each thread now caches its last stack and the node reached at each depth (`thread[PATH]`), and only walks the part of the stack that changed; nodes keep children in one `Map` keyed by block id or `call\0proccode`. That brought the cost to about 1.5x. A `procedures_call` statement charges its procedure's node, and the `procedures_definition` hat charges its caller, so a procedure shows once in the tree.
+
+Per frame the probe also adds each charge to a dense `frameSelf` array and remembers which node ids it touched; the frame hook turns that into a sparse `[id, ops, …]` record, resets the touched slots, and counts live threads per script (with the block the first one is on). Records go into a bounded history, which feeds the thread graph's lanes (node ops summed by each node's `script` id) and range reports (`aggregateFrames`, which lives in `profile-view.js` so the HTML report can run it without a server). That kept the profiler at about 1.5x.
+
+The frame budget is `0.75 * frameMs / opCostMs` blocks, the sequencer's 75% work time expressed in ops. A frame at or over it is one where the sequencer ran out of time; in turbo or warp-heavy projects that is most of them.
+
+## Diff
+
+`diffRuns` steps both worlds `every` frames at a time and compares fingerprints: `spre.hash()` in world mode, or a hash of `observe()` in state mode. After each agreeing chunk it snapshots both (non-strict); on a mismatch it restores the last agreeing snapshots and steps one frame at a time, so finding frame N costs at most N + `every` frames and one snapshot per chunk. If a snapshot has problems (an uncontrolled promise), it falls back to comparing every frame without rewinding, and skips blame.
+
+Blame replays the diverging frame on each side with a probe that, around every statement, reads each differing value (a variable, a sprite property, or the one list item that differs) and logs a write whenever it changed. Each difference's writes are then aligned by index between A and B; the first index where the values disagree is that difference's mismatch. To pick one origin across all differences, both sides' writes are merged in execution order and the two streams are walked together: the first point where they disagree names the origin, and if one side has an extra write (the other side's next write matches) the extra write wins. Comparing statement counters across sides would be wrong, since different code paths run different numbers of statements. Labels and call paths are rendered only for the writes that are reported.
+
+Observations key clones by sprite and creation order rather than id, since clone ids differ between two different projects even when they behave the same.
 
 ## Testing
 

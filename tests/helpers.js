@@ -205,3 +205,23 @@ export const forever = body => op('control_forever', { SUBSTACK: body });
 export const repeat = (times, body) => op('control_repeat', { TIMES: times, SUBSTACK: body });
 export const wait = secs => op('control_wait', { DURATION: secs });
 export const addToList = (name, item) => op('data_addtolist', { ITEM: item }, { LIST: variable(name) });
+
+export const procedure = ({ code, names, defaults = names.map(() => ''), warp = false }) => {
+    const ids = names.map(name => `${code}:${name}`);
+    return {
+        ids,
+        mutation: { tagName: 'mutation', children: [], proccode: code, argumentids: JSON.stringify(ids), argumentnames: JSON.stringify(names), argumentdefaults: JSON.stringify(defaults), warp: String(warp) },
+    };
+};
+
+export const define = (spec, body) => [
+    op('procedures_definition', { custom_block: { ...op('procedures_prototype', {}, {}), shadow: true, mutation: spec.mutation } }),
+    ...body,
+];
+
+export const call = (spec, ...args) => ({
+    ...op('procedures_call', Object.fromEntries(spec.ids.map((id, i) => [id, args[i] ?? ''])), {}),
+    mutation: spec.mutation,
+});
+
+export const param = name => op('argument_reporter_string_number', {}, { VALUE: name });

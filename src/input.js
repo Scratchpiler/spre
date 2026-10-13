@@ -10,7 +10,7 @@ const KEY_ALIASES = {
     enter: 'Enter',
 };
 
-export const EVENT_TYPES = ['key', 'mouse', 'wheel', 'answer', 'loudness', 'username', 'flag', 'stop', 'turbo', 'cloud', 'poke', 'list', 'hold', 'release'];
+export const EVENT_TYPES = ['key', 'mouse', 'wheel', 'answer', 'loudness', 'username', 'flag', 'stop', 'turbo', 'cloud', 'poke', 'list', 'hold', 'release', 'clock', 'rng'];
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
@@ -83,6 +83,16 @@ export function createInput(ctx, { answers = null } = {}) {
         case 'release':
             ctx.memory.apply(event);
             break;
+        case 'clock':
+            ctx.clock.configure(event);
+            runtime.currentStepTime = ctx.clock.frameMs;
+            break;
+        case 'rng':
+            if (event.op === 'reseed') ctx.rng.reseed(event.seed);
+            else if (event.op === 'force') ctx.rng.force(...event.values);
+            else if (event.op === 'queue') ctx.rng.queue(event.stream, ...event.values);
+            else throw new TypeError(`unknown rng event op ${event.op}`);
+            break;
         }
     };
 
@@ -125,6 +135,14 @@ export function createInput(ctx, { answers = null } = {}) {
 
     return {
         get loudness() { return loudness; },
+
+        recordNow(event) {
+            record({ ...validate(event) });
+        },
+
+        setLog(entries) {
+            log = entries.map(entry => ({ ...entry }));
+        },
 
         applyFrame(frame) {
             while (head < schedule.length && schedule[head].frame <= frame) record(schedule[head++].event);
@@ -202,7 +220,6 @@ export function createInput(ctx, { answers = null } = {}) {
             seq = saved.seq;
             schedule = saved.schedule.map(item => ({ ...item, event: { ...item.event } }));
             head = 0;
-            log = log.filter(entry => entry.frame < ctx.frame);
         },
     };
 }

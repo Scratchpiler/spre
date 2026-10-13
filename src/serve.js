@@ -21,6 +21,7 @@ export async function serve(project, { port = 8642, host = '127.0.0.1', flag = t
         ['/', { type: TYPES.html, body: bundles.html }],
         ['/index.html', { type: TYPES.html, body: bundles.html }],
         ['/app.js', { type: TYPES.js, body: bundles.app }],
+        ['/spre.user.js', { type: TYPES.js, body: bundles.userscript }],
         ['/assets/resvg.wasm', { type: TYPES.wasm, path: require.resolve('@resvg/resvg-wasm/index_bg.wasm') }],
         ...FONT_FILES.map(name => [`/assets/fonts/${name}`, { type: TYPES[name.split('.').pop()], path: join(fontDir, name) }]),
     ]);

@@ -9,8 +9,8 @@ export const PANEL_CSS = `
     --faint: #9aa1b2;
     --hair: rgba(29, 34, 48, 0.08);
     --hair-strong: rgba(29, 34, 48, 0.14);
-    --violet: #6a4df5;
-    --violet-soft: rgba(106, 77, 245, 0.12);
+    --accent: #007aff;
+    --accent-soft: rgba(0, 122, 255, 0.12);
     --ice: #1ba7c4;
     --ice-soft: rgba(27, 167, 196, 0.13);
     --data: #ff8c1a;
@@ -23,7 +23,6 @@ export const PANEL_CSS = `
     --spring: cubic-bezier(0.32, 0.72, 0, 1);
     --snap: cubic-bezier(0.2, 0.9, 0.1, 1);
     --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", "Noto Sans", sans-serif;
-    --pixel: "SPRE Pixel", ui-sans-serif, system-ui, sans-serif;
     font: 400 12.5px/1.4 var(--ui);
     color: var(--ink);
     font-variant-numeric: tabular-nums;
@@ -39,8 +38,8 @@ export const PANEL_CSS = `
         --faint: #6c7387;
         --hair: rgba(233, 235, 241, 0.08);
         --hair-strong: rgba(233, 235, 241, 0.14);
-        --violet: #8b74ff;
-        --violet-soft: rgba(139, 116, 255, 0.16);
+        --accent: #0a84ff;
+        --accent-soft: rgba(10, 132, 255, 0.18);
         --ice: #3cc3df;
         --ice-soft: rgba(60, 195, 223, 0.15);
         --shell: rgba(233, 235, 241, 0.05);
@@ -64,7 +63,7 @@ button {
 }
 
 button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
-    outline: 2px solid var(--violet);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
@@ -144,8 +143,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .icon-button:hover { background: var(--hair); }
 .icon-button:active { transform: scale(0.92); }
 .icon-button[disabled] { opacity: 0.35; pointer-events: none; }
-.icon-button.primary { background: var(--violet); color: #fff; }
-.icon-button.primary:hover { background: var(--violet); transform: scale(1.04); }
+.icon-button.primary { background: var(--accent); color: #fff; }
+.icon-button.primary:hover { background: var(--accent); transform: scale(1.04); }
 .icon-button.small { width: 24px; height: 24px; }
 .icon-button.is-on { color: var(--live); }
 .icon-button.is-on svg circle { fill: currentColor; }
@@ -159,17 +158,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 }
 
 .frame {
-    font-family: var(--pixel);
-    font-size: 22px;
-    letter-spacing: 0.02em;
+    font-size: 21px;
+    font-weight: 620;
+    letter-spacing: -0.015em;
     color: var(--ink);
     white-space: nowrap;
 }
 
 .time {
-    margin-top: 4px;
-    font-family: var(--pixel);
-    font-size: 10px;
+    margin-top: 3px;
+    font-size: 11px;
     color: var(--muted);
     white-space: nowrap;
 }
@@ -226,7 +224,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
     top: 0;
     bottom: 0;
     left: 0;
-    background: var(--violet-soft);
+    background: var(--accent-soft);
     transform-origin: 0 50%;
 }
 
@@ -236,7 +234,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
     width: 6px;
     height: 6px;
     margin-left: -3px;
-    background: var(--violet);
+    background: var(--accent);
     opacity: 0.55;
     transform: rotate(45deg);
 }
@@ -257,7 +255,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
     bottom: 0;
     width: 2px;
     margin-left: -1px;
-    background: var(--violet);
+    background: var(--accent);
     transition: transform 140ms var(--snap);
 }
 
@@ -269,13 +267,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
     width: 10px;
     height: 10px;
     border-radius: 999px;
-    background: var(--violet);
+    background: var(--accent);
     box-shadow: 0 0 0 2px var(--card);
 }
 
 .tape-span {
-    font-family: var(--pixel);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--faint);
     white-space: nowrap;
 }
@@ -303,7 +300,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
     left: 0;
     height: 2px;
     border-radius: 2px;
-    background: var(--violet);
+    background: var(--accent);
     transition: transform 420ms var(--spring), width 420ms var(--spring);
 }
 
@@ -357,7 +354,7 @@ select.field { flex: 0 1 auto; padding-right: 6px; }
 
 .pill:hover { background: var(--card-raised); }
 .pill:active { transform: scale(0.96); }
-.pill.strong { background: var(--violet); color: #fff; box-shadow: none; }
+.pill.strong { background: var(--accent); color: #fff; box-shadow: none; }
 .pill[disabled] { opacity: 0.4; pointer-events: none; }
 
 .rows { list-style: none; margin: 0; padding: 4px 0; }
@@ -430,7 +427,7 @@ select.field { flex: 0 1 auto; padding-right: 6px; }
 }
 
 .launcher:hover { transform: translateY(-1px); }
-.launcher .badge { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--violet); color: #fff; }
+.launcher .badge { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--accent); color: #fff; }
 .launcher .frame { font-size: 14px; }
 
 .resize {
@@ -442,6 +439,49 @@ select.field { flex: 0 1 auto; padding-right: 6px; }
     cursor: nwse-resize;
     touch-action: none;
 }
+
+.pill.push { margin-left: auto; }
+
+.sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483001;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(16, 18, 24, 0.32);
+    animation: fade 220ms var(--snap) both;
+}
+
+.sheet {
+    width: min(1400px, 100%);
+    height: min(980px, 100%);
+    padding: 6px;
+    border-radius: 22px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+    outline: 1px solid var(--hair);
+    outline-offset: -1px;
+    animation: lift 420ms var(--spring) both;
+}
+
+.sheet-core {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: var(--highlight);
+}
+
+.sheet-core .toolbar { padding: 10px 14px; }
+.sheet-core .pv { padding: 16px; }
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lift { from { opacity: 0; transform: translateY(12px) scale(0.985); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 640px) { .sheet-backdrop { padding: 8px; } }
 
 @media (prefers-reduced-motion: reduce) {
     *, .shell { animation: none !important; transition: none !important; }

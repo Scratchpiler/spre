@@ -1,4 +1,5 @@
 const LIST_PREVIEW = 8;
+const PROFILE_FRAMES = 900;
 
 const preview = value => (Array.isArray(value) ? { length: value.length, items: value.slice(0, LIST_PREVIEW) } : value);
 
@@ -239,6 +240,31 @@ export function createDebugger({ spre, vm }) {
 
         'spre.movie'() {
             return spre.movie();
+        },
+
+        'profile.start'() {
+            spre.profile.start();
+            return { running: true };
+        },
+
+        'profile.stop'() {
+            spre.profile.stop();
+            return { running: false };
+        },
+
+        'profile.clear'() {
+            spre.profile.clear();
+            return { running: spre.profile.running };
+        },
+
+        'profile.report'({ recentFrames = PROFILE_FRAMES, timelineFrames = 0, from, to } = {}) {
+            const report = spre.profile.report({ timelineFrames, from, to });
+            if (!report) return { running: spre.profile.running, report: null };
+            const frameOps = report.frameOps.slice(-recentFrames);
+            return {
+                running: spre.profile.running,
+                report: { ...report, frameOps, frameOpsFirst: report.firstFrame + report.frames - frameOps.length },
+            };
         },
 
         'project.flag'() {

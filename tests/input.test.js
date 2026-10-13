@@ -1,4 +1,4 @@
-import { assert, boot, changeVar, flag, forever, menu, op, setVar, stageVar, test } from './helpers.js';
+import { assert, boot, broadcast, changeVar, flag, forever, menu, op, setVar, stageVar, test } from './helpers.js';
 
 const whenKey = key => op('event_whenkeypressed', {}, { KEY_OPTION: key });
 const keyDown = key => op('sensing_keypressed', { KEY_OPTION: menu('sensing_keyoptions', 'KEY_OPTION', key) });
@@ -125,4 +125,20 @@ test('unknown input events are rejected up front', async () => {
     const { spre } = await boot({});
     assert.throws(() => spre.input.send({ type: 'teleport' }), /unknown input event/);
     assert.throws(() => spre.input.at(-1, { type: 'flag' }), RangeError);
+});
+
+test('status says whether the open question is in a sprite bubble or needs the prompt text', async () => {
+    const { spre } = await boot({
+        stage: { variables: { a: '' }, broadcasts: ['next'], scripts: [[op('event_whenbroadcastreceived', {}, { BROADCAST_OPTION: broadcast('next') }), op('sensing_askandwait', { QUESTION: 'stage?' })]] },
+        sprites: { Cat: { scripts: [[flag(), op('sensing_askandwait', { QUESTION: 'cat?' }), op('event_broadcast', { BROADCAST_INPUT: broadcast('next') })]] } },
+    });
+    spre.greenFlag();
+    spre.step(2);
+    assert.deepEqual([spre.status().question, spre.status().questionInBubble], ['cat?', true]);
+    spre.input.answer('meow');
+    spre.step(3);
+    assert.deepEqual([spre.status().question, spre.status().questionInBubble], ['stage?', false]);
+    spre.input.answer('ok');
+    spre.step(2);
+    assert.deepEqual([spre.status().question, spre.status().questionInBubble], [null, false]);
 });

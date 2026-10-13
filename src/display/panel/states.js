@@ -28,7 +28,7 @@ export function createStatesTab({ client }) {
         const states = await client.call('states.list');
         note.textContent = states.length ? '' : 'A savestate holds the whole world: every sprite, clone, script and pen line. Load one to jump straight back.';
         replaceChildren(list, states.slice().reverse().map(state => h('li', { class: 'row' },
-            h('span', { class: 'marker', style: { background: 'var(--violet)' }, 'aria-hidden': 'true' }),
+            h('span', { class: 'marker', style: { background: 'var(--accent)' }, 'aria-hidden': 'true' }),
             h('span', { class: 'name' }, state.name),
             h('span', { class: 'value', style: { color: 'var(--muted)' } }, `frame ${state.frame}`),
             h('span', { class: 'actions' },

@@ -60,7 +60,7 @@ export function createInputsTab({ client }) {
         ].map(event => h('li', { class: 'row', style: event.upcoming ? { opacity: 0.55 } : undefined },
             h('span', { class: 'marker', style: { background: 'var(--event)' }, 'aria-hidden': 'true' }),
             h('span', { class: 'name' }, describe(event)),
-            h('span', { class: 'value', style: { color: 'var(--muted)', fontFamily: 'var(--pixel)', fontSize: '10px', lineHeight: '24px' } }, `${event.frame}`),
+            h('span', { class: 'value', style: { color: 'var(--muted)', fontSize: '11px', lineHeight: '24px' } }, `${event.frame}`),
             h('span'))));
     };
 

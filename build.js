@@ -30,13 +30,16 @@ const workerPlugin = workerSource => ({
     },
 });
 
-export async function buildBundles({ minify = true } = {}) {
+export async function buildBundles({ minify = true, sourcemap = false } = {}) {
     const esbuild = loadEsbuild();
     const workerSource = await bundleWorker(esbuild);
-    const common = { bundle: true, write: false, platform: 'browser', external: ['node:*'], alias: TWGL_ALIAS, plugins: [workerPlugin(workerSource)], minify, legalComments: 'none' };
+    const common = {
+        bundle: true, write: false, platform: 'browser', external: ['node:*'], alias: TWGL_ALIAS, plugins: [workerPlugin(workerSource)],
+        minify, legalComments: 'none', ...(sourcemap && { sourcemap: 'inline', sourceRoot: root.pathname }),
+    };
     const [app, userscript] = await Promise.all([
         esbuild.build({ ...common, entryPoints: [new URL('src/display/app.js', root).pathname], format: 'esm' }),
-        esbuild.build({ ...common, entryPoints: [new URL('src/browser/userscript.js', root).pathname], format: 'iife', minify: false }),
+        esbuild.build({ ...common, entryPoints: [new URL('src/browser/userscript.js', root).pathname], format: 'iife' }),
     ]);
     const [meta, pkg, html] = await Promise.all([
         readFile(new URL('src/browser/meta.js', root), 'utf8'),
@@ -53,7 +56,8 @@ export async function buildBundles({ minify = true } = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    const bundles = await buildBundles();
+    const dev = process.argv.includes('--dev');
+    const bundles = await buildBundles({ minify: !dev, sourcemap: dev });
     await mkdir(new URL('dist/', root), { recursive: true });
     await Promise.all([
         writeFile(new URL('dist/spre.user.js', root), bundles.userscript),

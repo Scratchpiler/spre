@@ -1,5 +1,5 @@
 import { createBrowserPool } from '../display/browser-pool.js';
-import { registerPixelFont } from '../display/assets.js';
+import { createFpsMeter } from '../display/fps-meter.js';
 import { createPanel } from '../display/panel/index.js';
 import { createStageView } from '../display/stage-view.js';
 import { connectClient } from '../remote/client.js';
@@ -20,14 +20,31 @@ const findVM = () => {
 
 const projectReady = vm => vm && vm.runtime.targets.length > 0 && vm.renderer?._allSkins;
 
-function overlayFor(pageCanvas) {
+const playerFrame = canvas => {
+    let node = canvas.parentElement;
+    for (let depth = 0; node && depth < 10; depth++, node = node.parentElement) {
+        if (node.querySelector('[class*="green-flag"]')) return node;
+    }
+    return canvas;
+};
+
+function overlayFor(pageCanvas, above) {
     const overlay = h('canvas', { 'data-spre-stage': '', style: { position: 'fixed', pointerEvents: 'none', zIndex: '2147482000', imageRendering: 'auto' } });
-    document.body.append(overlay);
+    document.body.append(overlay, above);
     const sync = () => {
         const rect = pageCanvas.getBoundingClientRect();
         const left = rect.left + pageCanvas.clientLeft;
         const top = rect.top + pageCanvas.clientTop;
         Object.assign(overlay.style, { left: `${left}px`, top: `${top}px`, width: `${pageCanvas.clientWidth}px`, height: `${pageCanvas.clientHeight}px`, display: rect.width ? 'block' : 'none' });
+        const frame = playerFrame(pageCanvas).getBoundingClientRect();
+        const room = frame.top - above.offsetHeight - 6;
+        Object.assign(above.style, {
+            position: 'fixed',
+            left: `${frame.left}px`,
+            top: `${room >= 0 ? room : frame.bottom + 6}px`,
+            zIndex: '2147482001',
+            display: rect.width ? 'block' : 'none',
+        });
     };
     sync();
     const observer = new ResizeObserver(sync);
@@ -50,14 +67,14 @@ function overlayFor(pageCanvas) {
 async function start(vm, setLabel) {
     setLabel('Loading the renderer…');
     const assets = await loadPageAssets();
-    await registerPixelFont(assets).catch(() => false);
     const pageCanvas = vm.renderer.canvas;
     const session = await adoptPageVM(vm, { assets });
     const pool = await createBrowserPool({ assets });
     const [backendPort, displayPort] = createLoopback();
     session.backend.connect(backendPort);
     const client = connectClient(displayPort, { scene: true });
-    const { overlay, dispose: disposeOverlay } = overlayFor(pageCanvas);
+    const fps = createFpsMeter({ client });
+    const { overlay, dispose: disposeOverlay } = overlayFor(pageCanvas, fps.element);
     const stage = createStageView({ client, pool, canvas: overlay, interactive: false });
     session.cpu.snapshotProvider = callback => callback(overlay.toDataURL('image/png'));
     const panel = createPanel({ client });
@@ -69,6 +86,7 @@ async function start(vm, setLabel) {
         client,
         stop() {
             panel.dispose();
+            fps.dispose();
             stage.dispose();
             disposeOverlay();
             pool.terminate();

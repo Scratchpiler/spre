@@ -1,27 +1,9 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { loadProject } from '../src/node.js';
-import { assert, boot, broadcast, changeVar, flag, forever, menu, op, repeat, setVar, test, variable, wait } from './helpers.js';
-
-const procedure = ({ code, names, defaults = names.map(() => ''), warp = false }) => {
-    const ids = names.map(name => `${code}:${name}`);
-    return {
-        ids,
-        mutation: { tagName: 'mutation', children: [], proccode: code, argumentids: JSON.stringify(ids), argumentnames: JSON.stringify(names), argumentdefaults: JSON.stringify(defaults), warp: String(warp) },
-    };
-};
-
-const define = (spec, body) => [
-    op('procedures_definition', { custom_block: { ...op('procedures_prototype', {}, {}), shadow: true, mutation: spec.mutation } }),
-    ...body,
-];
-
-const call = (spec, ...args) => ({
-    ...op('procedures_call', Object.fromEntries(spec.ids.map((id, i) => [id, args[i] ?? ''])), {}),
-    mutation: spec.mutation,
-});
-
-const param = name => op('argument_reporter_string_number', {}, { VALUE: name });
+import {
+    assert, boot, broadcast, call, changeVar, define, flag, forever, menu, op, param, procedure, repeat, setVar, test, variable, wait,
+} from './helpers.js';
 
 const fib = procedure({ code: 'fib %s', names: ['n'] });
 const accumulate = procedure({ code: 'accumulate %s %s', names: ['count', 'step'], defaults: ['3', '2'], warp: true });

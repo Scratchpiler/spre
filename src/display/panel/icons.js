@@ -21,4 +21,6 @@ export const ICONS = {
     dice: icon('<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><circle cx="9" cy="9" r=".6" fill="currentColor"/><circle cx="15" cy="15" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/>'),
     blank: icon('<rect x="4.5" y="6" width="15" height="12" rx="3"/><path d="M9 12h6"/>'),
     plus: icon('<path d="M12 5v14M5 12h14"/>'),
+    expand: icon('<path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5 13.5 10.5M4.5 19.5l6-6"/>'),
+    collapse: icon('<path d="M19.5 4.5 14 10M14 5.5V10h4.5M4.5 19.5 10 14M10 18.5V14H5.5"/>'),
 };

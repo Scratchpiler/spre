@@ -5,6 +5,9 @@ const NATIVE_HEIGHT = 360;
 
 const KEY_NAMES = { ' ': 'space', ArrowLeft: 'left arrow', ArrowRight: 'right arrow', ArrowUp: 'up arrow', ArrowDown: 'down arrow', Enter: 'enter' };
 
+const isEditable = node => node instanceof Element
+    && (node.isContentEditable || node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT');
+
 const scratchKey = event => {
     if (KEY_NAMES[event.key]) return KEY_NAMES[event.key];
     return event.key.length === 1 ? event.key : null;
@@ -145,14 +148,25 @@ export function createStageView({ client, pool, canvas, interactive = true, keyb
             event.preventDefault();
             client.input({ type: 'wheel', deltaY: event.deltaY });
         }, { passive: false });
+        const pressed = new Set();
         const onKey = down => event => {
             const key = scratchKey(event);
             if (!key || event.repeat) return;
+            if (down) {
+                if (isEditable(event.composedPath?.()[0] ?? event.target)) return;
+                pressed.add(key);
+            } else if (!pressed.delete(key)) {
+                return;
+            }
             event.preventDefault();
             client.input({ type: 'key', key, down });
         };
         listen(keyboardTarget, 'keydown', onKey(true));
         listen(keyboardTarget, 'keyup', onKey(false));
+        listen(globalThis, 'blur', () => {
+            for (const key of pressed) client.input({ type: 'key', key, down: false });
+            pressed.clear();
+        });
     }
 
     const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => invalidate());

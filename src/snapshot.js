@@ -1,6 +1,9 @@
-import { SnapshotError, decodeValue, encodeValue } from './encode.js';
+import { canonicalBlockId, realBlockId } from './block-ids.js';
+import { SnapshotError, decodeValue, encodeValue, hashValue } from './encode.js';
+import { withoutHistory } from './movie.js';
 
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
+const READABLE_VERSIONS = new Set([1, SNAPSHOT_VERSION]);
 
 const TARGET_PROPS = [
     'x', 'y', 'direction', 'draggable', 'visible', 'size', 'currentCostume', 'rotationStyle',
@@ -114,21 +117,22 @@ export function createSnapshots(ctx) {
         const controlledWaiters = new Set(waits.entries.map(entry => entry.thread));
         const threads = runtime.threads.map((thread, i) => {
             const path = `threads[${i}]`;
+            const canon = id => canonicalBlockId(thread.blockContainer, id);
             if (thread.status === internals.status.PROMISE_WAIT && !controlledWaiters.has(thread)) {
                 problems.push(`${path}: waits on a promise SPRE does not control (block ${thread.peekStack()})`);
             }
             return {
                 target: refOf(thread.target),
                 container: containerOf(thread),
-                top: thread.topBlock,
+                top: canon(thread.topBlock),
                 status: thread.status,
-                stack: [...thread.stack],
+                stack: thread.stack.map(canon),
                 frames: thread.stackFrames.map((frame, j) => ({
                     loop: frame.isLoop,
                     warp: frame.warpMode,
                     justReported: encode(frame.justReported, `${path}.frames[${j}].justReported`),
-                    reporting: frame.reported === null ? null : frame.reporting,
-                    reported: encode(frame.reported, `${path}.frames[${j}].reported`),
+                    reporting: frame.reported === null ? null : canon(frame.reporting),
+                    reported: encode(frame.reported?.map(report => ({ ...report, opCached: canon(report.opCached) })) ?? null, `${path}.frames[${j}].reported`),
                     waitingReporter: encode(frame.waitingReporter, `${path}.frames[${j}].waitingReporter`),
                     params: encode(frame.params, `${path}.frames[${j}].params`),
                     context: encode(frame.executionContext, `${path}.frames[${j}].context`),
@@ -139,12 +143,13 @@ export function createSnapshots(ctx) {
                 justReported: encode(thread.justReported, `${path}.justReported`),
                 warpTimer: encode(thread.warpTimer, `${path}.warpTimer`),
                 glow: thread.requestScriptGlowInFrame,
-                glowBlock: thread.blockGlowInFrame,
+                glowBlock: canon(thread.blockGlowInFrame),
             };
         });
 
         const encodedWaits = waits.entries.map(entry => ({
             ...entry,
+            block: canonicalBlockId(entry.thread?.blockContainer ?? entry.target?.blocks, entry.block),
             thread: entry.thread ? (threadIndex.get(entry.thread) ?? -1) : -1,
             target: entry.target ? refOf(entry.target) : undefined,
         }));
@@ -204,6 +209,7 @@ export function createSnapshots(ctx) {
             monitors,
             monitored,
             renderer: renderer && typeof renderer.save === 'function' ? renderer.save() : null,
+            history: { origin: ctx.origin?.id ?? null, log: encode(ctx.input.api.log(), 'history.log') },
         };
         if (problems.length) {
             if (strict) throw new SnapshotError(`cannot snapshot deterministically:\n  ${problems.join('\n  ')}`);
@@ -213,7 +219,7 @@ export function createSnapshots(ctx) {
     }
 
     function restore(snapshot) {
-        if (snapshot?.spre !== SNAPSHOT_VERSION) throw new SnapshotError(`not a SPRE v${SNAPSHOT_VERSION} snapshot`);
+        if (!READABLE_VERSIONS.has(snapshot?.spre)) throw new SnapshotError(`not a SPRE v${SNAPSHOT_VERSION} snapshot`);
         if (ctx.inFrame) throw new SnapshotError('snapshots can only be restored between frames');
         const originals = originalsByRef();
         for (const saved of snapshot.targets) {
@@ -321,18 +327,21 @@ export function createSnapshots(ctx) {
             thread.blockContainer = saved.container === 'monitor' ? runtime.monitorBlocks
                 : saved.container === 'flyout' ? runtime.flyoutBlocks
                     : thread.target.blocks;
-            for (const blockId of saved.stack) {
+            const real = id => realBlockId(thread.blockContainer, id);
+            const stack = saved.stack.map(real);
+            for (const blockId of stack) {
                 if (blockId !== null && !thread.blockContainer.getBlock(blockId)) {
                     throw new SnapshotError(`block ${blockId} is not in this project`, path);
                 }
             }
-            thread.stack = [...saved.stack];
+            thread.topBlock = real(saved.top);
+            thread.stack = stack;
             thread.stackFrames = saved.frames.map((savedFrame, j) => {
                 const frame = new StackFrame(savedFrame.warp);
                 frame.isLoop = savedFrame.loop;
                 frame.justReported = decode(savedFrame.justReported, `${path}.frames[${j}].justReported`);
-                frame.reporting = savedFrame.reporting ?? '';
-                frame.reported = decode(savedFrame.reported, `${path}.frames[${j}].reported`);
+                frame.reporting = real(savedFrame.reporting) ?? '';
+                frame.reported = decode(savedFrame.reported, `${path}.frames[${j}].reported`)?.map(report => ({ ...report, opCached: real(report.opCached) })) ?? null;
                 frame.waitingReporter = decode(savedFrame.waitingReporter, `${path}.frames[${j}].waitingReporter`);
                 frame.params = decode(savedFrame.params, `${path}.frames[${j}].params`);
                 frame.executionContext = decode(savedFrame.context, `${path}.frames[${j}].context`);
@@ -345,7 +354,7 @@ export function createSnapshots(ctx) {
             thread.justReported = decode(saved.justReported, `${path}.justReported`);
             thread.warpTimer = decode(saved.warpTimer, `${path}.warpTimer`);
             thread.requestScriptGlowInFrame = saved.glow;
-            thread.blockGlowInFrame = saved.glowBlock;
+            thread.blockGlowInFrame = real(saved.glowBlock);
         });
         runtime.threads = threads;
 
@@ -353,6 +362,7 @@ export function createSnapshots(ctx) {
             const restored = { ...entry, thread: entry.thread >= 0 ? threads[entry.thread] : null };
             if (entry.target !== undefined) restored.target = targetOf(entry.target);
             else delete restored.target;
+            restored.block = realBlockId(restored.thread?.blockContainer ?? restored.target?.blocks, entry.block);
             return restored;
         });
         ctx.waits.load({
@@ -379,6 +389,13 @@ export function createSnapshots(ctx) {
         ctx.clock.load(snapshot.clock);
         ctx.rng.load(decode(snapshot.rng, 'rng'));
         ctx.input.load(decode(snapshot.input, 'input'));
+        if (snapshot.history && snapshot.history.origin === ctx.origin.id) {
+            ctx.input.setLog(decode(snapshot.history.log, 'history.log'));
+        } else {
+            const start = JSON.parse(JSON.stringify(withoutHistory(snapshot)));
+            ctx.origin = { id: `snapshot:${hashValue(start)}`, snapshot: start };
+            ctx.input.setLog([]);
+        }
         ctx.memory.load(decode(snapshot.holds ?? [], 'holds'));
         ctx.timers.clearAll();
         ctx.waits.replayQuestionPrompt();

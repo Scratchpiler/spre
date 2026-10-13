@@ -166,7 +166,7 @@ const compileOps = (blockCached, glow, helpers, handleReport, handlePromise) => 
     return new Function('work', 'tn', 'bool', 'listIndex', 'hasOwn', 'lookup', 'callProcedure', 'handleReport', 'pending', ...names, body)(work, toNumber, toBoolean, listIndex, hasOwn, helpers.lookup, helpers.callProcedure, handleReport, pending, ...values);
 };
 
-export function installFastExecute(runtime, { work, countedImpl, isStock }) {
+export function installFastExecute(runtime, { work, countedImpl, isStock, probes = { current: null } }) {
     const sequencer = runtime.sequencer;
     const Timer = sequencer.timer.constructor;
     const WARP_TIME = sequencer.constructor.WARP_TIME;
@@ -556,6 +556,8 @@ export function installFastExecute(runtime, { work, countedImpl, isStock }) {
 
     const stepThread = function (thread) {
         work.ops++;
+        const probe = probes.current;
+        if (probe !== null) probe.step(thread);
         let currentBlockId = thread.peekStack();
         if (!currentBlockId) {
             thread.popStack();
@@ -571,7 +573,8 @@ export function installFastExecute(runtime, { work, countedImpl, isStock }) {
                 thread.warpTimer.start();
             }
             if (thread.target === null) this.retireThread(thread);
-            else execute(thread);
+            else if (probe === null) execute(thread);
+            else probe.block(thread, currentBlockId, execute);
             thread.blockGlowInFrame = currentBlockId;
             if (thread.status === YIELD) {
                 thread.status = RUNNING;

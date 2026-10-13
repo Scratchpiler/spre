@@ -7,13 +7,19 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./node": "./src/node.js"
+    "./node": "./src/node.js",
+    "./diff": "./src/diff.js",
+    "./profile": "./src/profile.js",
+    "./replay": "./src/replay.js"
   },
   "bin": {
     "spre": "bin/spre.js"
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "build": "node build.js",
+    "build:dev": "node build.js --dev",
+    "watch": "node --watch-path=src --watch-path=build.js build.js --dev"
   },
   "license": "AGPL-3.0-only",
   "dependencies": {

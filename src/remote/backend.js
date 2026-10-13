@@ -1,5 +1,6 @@
 import { createSceneChannel, describeScene } from '../render/scene.js';
 import { createDebugger } from './debugger.js';
+import { createFrameRate } from './frame-rate.js';
 import { createTimeline } from './timeline.js';
 
 export const PROTOCOL_VERSION = 1;
@@ -16,6 +17,7 @@ const STATUS_INTERVAL_MS = 100;
 
 export function createBackend({ spre, vm, name = 'project', timing = defaultTiming, timeline: timelineOptions } = {}) {
     const timeline = createTimeline(spre, timelineOptions);
+    const frameRate = createFrameRate();
     const methods = createDebugger({ spre, vm });
     const sessions = new Set();
     let running = false;
@@ -34,6 +36,8 @@ export function createBackend({ spre, vm, name = 'project', timing = defaultTimi
         running,
         speed,
         fps: fps(),
+        frameRate: frameRate.stats(timing.now()),
+        targetFps: running && Number.isFinite(speed) ? fps() * speed : null,
         holds: spre.memory.holds().length,
         timeline: timeline.info(),
     });
@@ -95,20 +99,25 @@ export function createBackend({ spre, vm, name = 'project', timing = defaultTimi
         timer = null;
         if (!running) return;
         const started = timing.now();
+        let ran = 0;
         try {
             if (!Number.isFinite(speed)) {
-                do runFrame(); while (timing.now() - started < TURBO_SLICE_MS);
+                do {
+                    runFrame();
+                    ran++;
+                } while (timing.now() - started < TURBO_SLICE_MS);
             } else {
                 const due = anchorFrame + Math.floor((started - anchorTime) * fps() * speed / 1000);
-                let ran = 0;
                 while (spre.frame < due && ran < MAX_CATCH_UP_FRAMES) {
                     runFrame();
                     ran++;
                 }
                 if (spre.frame < due) reanchor();
             }
+            frameRate.record(ran, timing.now());
         } catch (error) {
             running = false;
+            frameRate.pause();
             for (const session of sessions) sendTo(session, { type: 'event', name: 'error', data: error.message });
         }
         broadcast();
@@ -119,6 +128,7 @@ export function createBackend({ spre, vm, name = 'project', timing = defaultTimi
         'time.status': () => status(),
         'time.pause'() {
             running = false;
+            frameRate.pause();
             if (timer !== null) timing.cancel(timer);
             timer = null;
             broadcast({ force: true });
@@ -127,6 +137,7 @@ export function createBackend({ spre, vm, name = 'project', timing = defaultTimi
         'time.resume'() {
             if (!running) {
                 running = true;
+                frameRate.begin(timing.now());
                 reanchor();
                 schedule();
             }
@@ -143,6 +154,8 @@ export function createBackend({ spre, vm, name = 'project', timing = defaultTimi
                 const next = Number(value);
                 if (!(next > 0)) throw new RangeError('speed must be above 0 (Infinity runs flat out)');
                 speed = next;
+                frameRate.clear();
+                if (running) frameRate.begin(timing.now());
                 reanchor();
             }
             return status();

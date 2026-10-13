@@ -111,7 +111,7 @@ export async function createVM(source, { quiet = true, renderer = 'cpu' } = {}) 
 
 export async function loadProject(source, { quiet = true, renderer = 'cpu', ...options } = {}) {
     const vm = await createVM(source, { quiet, renderer });
-    return { vm, spre: attach(vm, options) };
+    return { vm, spre: attach(vm, { origin: 'load', ...options }) };
 }
 
 export { attach, createNullRenderer };

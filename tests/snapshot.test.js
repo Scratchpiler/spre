@@ -1,7 +1,7 @@
 import { SnapshotError } from '../src/index.js';
 import { loadProject } from '../src/node.js';
 import {
-    addToList, assert, boot, broadcast, changeVar, flag, forever, menu, op, repeat, setVar, stageVar, test, wait,
+    addToList, assert, boot, broadcast, changeVar, flag, forever, menu, op, repeat, setVar, stageVar, test, variable, wait,
 } from './helpers.js';
 
 const cloneOf = name => op('control_create_clone_of', { CLONE_OPTION: menu('control_create_clone_of_menu', 'CLONE_OPTION', name) });
@@ -88,6 +88,36 @@ test('a snapshot restores into a freshly loaded VM', async () => {
     assert.equal(fresh.spre.hash(), live.spre.hash());
     assert.equal(stageVar(fresh.vm, 'answer'), 'because');
     assert.ok(Number(stageVar(fresh.vm, 'plays')) >= 4);
+});
+
+const waitingOnComputedInput = {
+    stage: { variables: { n: 3 } },
+    sprites: {
+        Cat: {
+            scripts: [[flag(), forever([
+                op('looks_sayforsecs', { MESSAGE: op('operator_join', { STRING1: variable('n'), STRING2: '!' }), SECS: 0.5 }),
+                changeVar('n', 1),
+            ])]],
+        },
+    },
+};
+
+test('separate loads of a project hash equal while a computed input waits on a promise', async () => {
+    const [a, b] = [await boot(waitingOnComputedInput), await boot(waitingOnComputedInput)];
+    for (const { spre } of [a, b]) {
+        spre.greenFlag();
+        spre.step(5);
+    }
+    const reported = a.spre.snapshot().threads[0].frames.flatMap(frame => frame.reported ?? []);
+    assert.ok(reported.some(report => report.opCached.startsWith('$[')), 'the inline variable reporter has a canonical id');
+    assert.equal(a.spre.hash(), b.spre.hash());
+
+    const snapshot = JSON.parse(JSON.stringify(a.spre.snapshot()));
+    b.spre.restore(snapshot);
+    a.spre.step(40);
+    b.spre.step(40);
+    assert.equal(a.spre.hash(), b.spre.hash());
+    assert.equal(stageVar(b.vm, 'n'), stageVar(a.vm, 'n'));
 });
 
 test('NaN, infinities and negative zero survive JSON', async () => {
@@ -207,4 +237,28 @@ test('sound effect and volume blocks yield one frame without real promises', asy
     spre.restore(snapshot);
     spre.step(9);
     assert.equal(stageVar(vm, 'steps'), 4);
+});
+
+test('loose reporters lying in the scripting area get load-independent names too', async () => {
+    const { project: build, zipProject: zip } = await import('./helpers.js');
+    const { canonicalBlockId, realBlockId } = await import('../src/block-ids.js');
+    const { projectFingerprint } = await import('../src/movie.js');
+    const built = build({ stage: { variables: { n: 1 } }, sprites: { Cat: { scripts: [[flag(), changeVar('n', 1)]] } } });
+    const stage = built.json.targets[0];
+    const cat = built.json.targets[1];
+    const varId = Object.keys(stage.variables)[0];
+    cat.blocks.looseA = [12, 'n', varId, 40, 80];
+    cat.blocks.looseB = [12, 'n', varId, 40, 80];
+    const data = await zip(built);
+    const [a, b] = [await loadProject(data), await loadProject(data)];
+    assert.equal(projectFingerprint(a.vm.runtime), projectFingerprint(b.vm.runtime));
+    const names = vm => {
+        const blocks = vm.runtime.getSpriteTargetByName('Cat').blocks;
+        return blocks.getScripts().filter(id => blocks.getBlock(id).opcode === 'data_variable').map(id => [canonicalBlockId(blocks, id), id]);
+    };
+    const [namesA, namesB] = [names(a.vm), names(b.vm)];
+    assert.deepEqual(namesA.map(([name]) => name), namesB.map(([name]) => name));
+    assert.notEqual(namesA[0][0], namesA[1][0], 'identical reporters on the same spot are told apart');
+    const blocksB = b.vm.runtime.getSpriteTargetByName('Cat').blocks;
+    namesA.forEach(([name], i) => assert.equal(realBlockId(blocksB, name), namesB[i][1]));
 });

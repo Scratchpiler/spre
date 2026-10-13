@@ -2,6 +2,8 @@ import { h, replaceChildren } from './dom.js';
 import { ICONS } from './icons.js';
 import { createInputsTab } from './inputs.js';
 import { createMemoryTab } from './memory.js';
+import { createProfileTab } from './profile.js';
+import { PROFILE_CSS } from '../profile-view.js';
 import { createScanTab } from './scan.js';
 import { createStatesTab } from './states.js';
 import { PANEL_CSS } from './styles.js';
@@ -66,6 +68,7 @@ export function createPanel({ client, mount = document.body, open = true, hotkey
         ['Scan', createScanTab({ client })],
         ['Savestates', createStatesTab({ client })],
         ['Inputs', createInputsTab({ client })],
+        ['Profile', createProfileTab({ client, portal: shadow })],
     ];
     const indicator = h('span', { class: 'indicator' });
     const tabButtons = tabs.map(([label], i) => h('button', { role: 'tab', 'aria-selected': 'false', onClick: () => selectTab(i) }, label));
@@ -88,7 +91,7 @@ export function createPanel({ client, mount = document.body, open = true, hotkey
     const launcher = h('button', { class: 'launcher', 'aria-label': 'Open SPRE', onClick: () => setOpen(true) },
         h('span', { class: 'badge', html: ICONS.play }), launcherFrame);
 
-    shadow.append(h('style', {}, PANEL_CSS), shell, launcher);
+    shadow.append(h('style', {}, PANEL_CSS + PROFILE_CSS), shell, launcher);
     mount.append(host);
 
     const place = () => {
@@ -267,8 +270,8 @@ export function createPanel({ client, mount = document.body, open = true, hotkey
     const marksTimer = setInterval(async () => {
         if (shell.hidden || !status?.timeline?.recording) return;
         try {
-            const movie = await client.call('spre.movie');
-            renderInputMarks(movie.events.map(event => event.frame));
+            const { events } = await client.call('input.log', { last: 2000 });
+            renderInputMarks(events.map(event => event.frame));
         } catch {}
     }, 2000);
 
