@@ -88,6 +88,22 @@ const zipAssets = async data => {
     return costume => files.get(costume.md5) ?? files.get(`${costume.assetId}.${costume.dataFormat}`);
 };
 
+const SILENT_AUDIO_ENGINE = { decodeSoundPlayer: () => new Promise(() => {}) };
+
+const keepExtensionsFromRejecting = vm => {
+    const install = vm.installTargets;
+    vm.installTargets = function (...args) {
+        const { runtime } = this;
+        if (runtime.audioEngine) return install.apply(this, args);
+        runtime.audioEngine = SILENT_AUDIO_ENGINE;
+        try {
+            return install.apply(this, args);
+        } finally {
+            runtime.audioEngine = null;
+        }
+    };
+};
+
 const rendererFor = async choice => {
     if (choice === 'cpu') return createCpuRenderer();
     if (choice === 'null') return createNullRenderer();
@@ -97,6 +113,7 @@ const rendererFor = async choice => {
 export async function createVM(source, { quiet = true, renderer = 'cpu' } = {}) {
     const VM = loadScratchVM();
     const vm = new VM();
+    keepExtensionsFromRejecting(vm);
     const attached = await rendererFor(renderer);
     if (attached) vm.attachRenderer(attached);
     vm.geometry = { resolved: 0, missing: 0 };

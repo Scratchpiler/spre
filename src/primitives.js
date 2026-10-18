@@ -58,7 +58,7 @@ const silence = result => {
 };
 
 function overridesFor(ctx) {
-    const { clock, rng, waits, input } = ctx;
+    const { clock, rng, waits, input, services } = ctx;
 
     const bubbleFor = type => original => (args, util) => {
         ctx.original(`looks_${type}`)(args, util);
@@ -105,6 +105,19 @@ function overridesFor(ctx) {
                 return input.loudness > toNumber(args.VALUE);
             }
             return original(args, util);
+        },
+
+        translate_getTranslate: () => args => {
+            const words = String(args.WORDS);
+            if (/^\d+$/.test(words)) return words;
+            return String(services.translate({ words, language: String(args.LANGUAGE) }) ?? '');
+        },
+
+        text2speech_speakAndWait: () => (args, util) => {
+            const words = String(args.WORDS).substring(0, 128);
+            const state = util.target.getCustomState('Scratch.text2speech');
+            const duration = Number(services.speechMs({ words, voice: state?.voiceId ?? null, sprite: util.target.getName() }));
+            return waits.add(util.thread, { kind: 'speech', due: clock.now() + normalizeDelay(duration) });
         },
 
         sound_play: original => (args, util) => {

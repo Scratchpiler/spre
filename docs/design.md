@@ -58,9 +58,14 @@ A stock block that returns a promise parks its thread in `PROMISE_WAIT`, and a c
 | `bubble` | say/think for secs | at `now + 1000 × SECS` (setTimeout's clamping: NaN/negative → 0, over 2³¹−1 → 1), clearing the bubble if its usage id is unchanged, like the stock timeout |
 | `sound` | play sound until done | after `sampleCount / rate / 2^(pitch/120)` seconds, or at the next frame if the same sound restarts or sounds are stopped |
 | `question` | ask and wait | when an `answer` input arrives |
+| `speech` | text to speech `speak and wait` | at `now + speechMs`; the stock block fetches audio from a server and waits for a player's `stop` event, neither of which can be reproduced |
 | `tick` | sound effect/volume blocks, which return `Promise.resolve()` "to yield until the next tick" | at the next frame boundary |
 
 Resolution happens at frame start, in `(due, sequence)` order, and resumes the thread with a copy of the stock continuation (`resume` in `waits.js` mirrors `handlePromise`). That's where the browser would resume it too: microtasks run after `_step` returns and before the next frame. Since live and restored runs use the same continuation, restore-and-replay can't diverge from the uninterrupted run.
+
+`translate_getTranslate` is not a wait: the stock block returns a fetch promise, so SPRE answers synchronously from the `translate` option instead.
+
+The music extension's constructor decodes its sample set at load and rejects with `No Audio Context Detected` when the runtime has no audio engine, which crashes Node with an unhandled rejection. `createVM` therefore gives the runtime an engine whose decodes never finish for the duration of `installTargets` (the only time extension constructors run during a load) and takes it away again. Sprites and sounds are already built by then, so the sound blocks still see no engine. The sample players stay undefined, which the note and drum blocks already treat as "not loaded".
 
 The question queue reimplements the stock sensing block's (prompt via bubble for visible sprites, answer clears it, next question shown, cleared on stop/stop-for-target). The stock instance can't be reached, since primitives are bound functions.
 

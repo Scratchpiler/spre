@@ -44,6 +44,8 @@ npm run build:dev    # readable, with inline source maps
 npm run watch        # build:dev again on every change under src/
 ```
 
+CI (`.github/workflows/ci.yml`) runs `npm test` and `npm run build` on Node 22, 24 and 26 for every push to `main` and every pull request, and attaches the built `dist/` to the Node 26 run as an artifact. The tests on `../test-projects` skip themselves there, since those projects aren't in the repo.
+
 `spre serve` builds both bundles when it starts and also serves the userscript at `/spre.user.js`, so a userscript manager can install it straight from the running server.
 
 ## Options
@@ -57,6 +59,8 @@ npm run watch        # build:dev again on every change under src/
 | `opCostMs` | `0.001` | Virtual milliseconds one block costs. This sets how much a non-drawing loop, a warp ("run without screen refresh") procedure or turbo mode gets through per frame. |
 | `fastExecute` | `true` | Run hot block stacks as compiled JavaScript (see [docs/design.md](docs/design.md#fast-execution)). Hashes, virtual time and snapshots are identical either way; `false` runs the stock interpreter. |
 | `answers` | `null` | Answers for `ask and wait`: an array used in order, or `({ question, sprite, frame }) => string \| undefined`. |
+| `translate` | `null` | Stands in for the Translate extension's server: `({ words, language }) => string`. By default the words come back unchanged. Digits-only text is never translated, as in the extension. |
+| `speechMs` | `null` | How long `speak … and wait` lasts: `({ words, voice, sprite }) => ms`. By default `max(250, 60 × characters)`. |
 
 `loadProject(source, options)` also takes `quiet` (default `true`, mutes scratch-vm's logging) and `renderer` (`'null'`, a renderer object, or `false`).
 
@@ -259,12 +263,14 @@ SPRE tries to make the deterministic run look like a run on scratch.mit.edu, not
 | `say … for … secs`, `play sound until done`, `ask and wait`, sound effect/volume yields | Replaced with SPRE waits that resolve at a frame boundary, with the stock block's side effects (bubble clearing by usage id, question queue, prompts). Sound length is `sampleCount / rate`, adjusted for the pitch effect at start. |
 | `current (year…second)`, `days since 2000` | Virtual wall clock in a fixed time zone. |
 | Loudness, mouse, keys, username, cloud | Input state, settable per frame. |
+| Translate, Text to Speech | No network. `translate` answers from the `translate` option, and `speak and wait` is a SPRE wait of `speechMs` milliseconds, so both snapshot. A function passed for either is listed in a movie's `unrecorded`. |
+| Music | Note and drum blocks time themselves on the virtual clock. Nothing is played, since there is no audio engine. |
 
 Known gaps, by design for now:
 
 - **No pixels.** `touching`, `touching color`, `color is touching` and `pick` (click detection without an explicit `target`) report nothing. Edge bounce and touching-edge use the costume's full rectangle, where scratch-render would use its opaque pixels. A deterministic CPU silhouette renderer is the planned fix.
 - **Pen** state is tracked but nothing is drawn.
-- **Extensions** with real promises or timers (music, text-to-speech, translate, video sensing, hardware) run, but snapshots refuse them in strict mode. [docs/nondeterminism-audit.md](docs/nondeterminism-audit.md) lists every nondeterministic path in scratch-vm 5.0.300.
+- **Extensions** with real promises or timers (video sensing, hardware) run, but snapshots refuse them in strict mode. [docs/nondeterminism-audit.md](docs/nondeterminism-audit.md) lists every nondeterministic path in scratch-vm 5.0.300.
 - **Attaching mid-run** (the future browser adapter) keeps the project timer's elapsed time, but glides started before attaching still read the real clock until they finish.
 
 ## Layout

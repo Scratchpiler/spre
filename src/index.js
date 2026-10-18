@@ -35,6 +35,8 @@ export function attach(vm, options = {}) {
         opCostMs = 0.001,
         utcOffsetMinutes = 0,
         answers = null,
+        translate = null,
+        speechMs = null,
         fastExecute = true,
         origin = 'snapshot',
     } = options;
@@ -56,7 +58,13 @@ export function attach(vm, options = {}) {
         probes: { current: null },
         frameHooks: new Set(),
         unrecorded: new Set(),
+        services: {
+            translate: translate ?? (({ words }) => words),
+            speechMs: speechMs ?? (({ words }) => Math.max(250, 60 * words.length)),
+        },
     };
+    if (translate) ctx.unrecorded.add('translate');
+    if (speechMs) ctx.unrecorded.add('speechMs');
     const { epoch: epochMs } = clock.save();
     ctx.settings = { seed: String(seed), fps, opCostMs, epoch: epochMs, utcOffsetMinutes };
     ctx.timers = createTimers(clock);

@@ -22,6 +22,9 @@
     "watch": "node --watch-path=src --watch-path=build.js build.js --dev"
   },
   "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
     "fast-png": "^8.0.0",
